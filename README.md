@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Visuals
+![demo gif](web-demo.webp)
 
-## Getting Started
+## Description
 
-First, run the development server:
+[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Project structure
+
+```
+project-root/
+├── .env                        # biến môi trường (DATABASE_URL, JWT_SECRET, v.v.)
+│
+├── prisma/
+│   ├── schema.prisma           # khai báo model database (user, post,...)
+│   ├── migrations/             # chứa migration do Prisma tạo
+│   └── seed.ts                 # (tuỳ chọn) script để seed dữ liệu mẫu
+│
+└── src/
+    ├── main.ts                 # bootstrap Nest app, enable ValidationPipe toàn cục
+    ├── app.module.ts           # module gốc, import các module khác
+    │
+    ├── config/                 # cấu hình ứng dụng
+    │
+    ├── common/                  # code dùng chung, không thuộc module cụ thể
+    │   ├── guards/              # RolesGuard, AuthGuard
+    │   ├── decorators/          # @Roles(), @CurrentUser()
+    │   ├── pipes/               # ParseIntPipe, ValidationPipe custom
+    │   └── filters/             # ExceptionFilter, PrismaExceptionFilter
+    │
+    ├── shared/                     # code tái sử dụng trong nhiều module
+    │   ├── prisma/
+    │   │   └── prisma.service.ts   # PrismaService singleton
+    │   ├── mailer/                 # MailService
+    │   └── logger/                 # LoggerService
+    │
+    └── modules/                # các module chính
+        ├── auth/
+        └── users/
+            ├── dto/
+            │   ├── create-user.dto.ts
+            │   └── update-user.dto.ts
+            ├── users.service.ts
+            ├── users.controller.ts
+            └── users.module.ts
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Project setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+$ npm install -g yarn
+$ yarn install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Compile and run the project
 
-## Learn More
+```bash
+# development
+yarn start
 
-To learn more about Next.js, take a look at the following resources:
+# watch mode
+yarn start:dev
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# production mode
+yarn start:prod
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Run tests
 
-## Deploy on Vercel
+```bash
+# unit tests
+yarn test
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# e2e tests
+yarn test:e2e
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# test coverage
+yarn test:cov
+```

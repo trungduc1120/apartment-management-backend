@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Users {
+  id               Int         @id @default(autoincrement())
+  username         String      @unique
+  email            String      @unique
+  password         String
+  role             Role
+  createtime       DateTime    @default(now())
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  householdId      Int?        @unique
+  HouseHolds       HouseHolds? @relation("account")
+  state            State       @default(INACTIVE)
+
+  TemporaryResidenceSubmit TemporaryResident[] @relation("tempResSubmit")
+  TemporaryResidenceReview TemporaryResident[] @relation("tempResReview")
+  TemporaryAbsenceSubmit   TemporaryAbsence[]  @relation("tempAbsenceSubmit")
+  TemporaryAbsenceReview   TemporaryAbsence[]  @relation("tempAbsenceReview")
+  RcSubmit                 ResidentChanges[]   @relation("RcSubmit")
+  RcReviews                ResidentChanges[]   @relation("RcReview")
+  HcSubmit                 HouseholdChanges[]  @relation("HcSubmit")
+  HcReview                 HouseholdChanges[]  @relation("HcReview")
+}
+
+enum State{
+  INACTIVE
+  ACTIVE
+  DELETED
+}
+
+enum Role {
+  USER
+  ADMIN
+  ACCOUNTANT
+}
+
+model HouseHolds {
+  id              Int             @id @default(autoincrement())
+  houseHoldCode   Int             @unique
+  apartmentNumber String          @unique
+  buildingNumber  String
+  street          String
+  ward            String
+  province        String
+  status          HouseHoldStatus @default(ACTIVE)
+  numCars         Int @default(0)
+  numMotorbike    Int @default(0)
+  informationStatus InformationStatus @default(PENDING)
+  createtime      DateTime        @default(now())
+  headID          Int             @unique
+  userID          Int?             @unique
+  FeeAssignment   FeeAssignment[]
+  head            Resident        @relation("headOfHouse", fields: [headID], references: [id])
+  account         Users?           @relation("account", fields: [userID], references: [id])
+  resident        Resident[]      @relation("houseMembers")
+
+
+  HouseholdChanges HouseholdChanges[] @relation("householdChange")
+  TemporaryResidence TemporaryResident[] @relation("tempaResHousehold")
+}
+
+enum HouseHoldStatus {
+  ACTIVE
+  MOVED
+  DELETE
+}
+
+model Resident {
+  id                 Int                @id @default(autoincrement())
+  nationalId         String             @unique // cccd
+  phoneNumber        String             @unique
+  email              String             @unique
+  fullname           String
+  dateOfBirth        DateTime
+  gender             Gender
+  relationshipToHead RelationshipToHead
+  placeOfOrigin      String
+  occupation         String
+  workingAdress      String
+  residentStatus     ResidenceStatus    @default(NORMAL)
+  informationStatus  InformationStatus  @default(PENDING)
+  houseHoldId        Int?
+
+  houseHold   HouseHolds? @relation("houseMembers", fields: [houseHoldId], references: [id])
+  headedHouse HouseHolds? @relation("headOfHouse")
+  TemporaryResidence TemporaryResident[] @relation("tempResidence")
+  TemporaryAbsence   TemporaryAbsence[]  @relation("tempAbsence")
+  ResidentChanges ResidentChanges[] @relation("residentChange")
+}
+
+model Fee {
+  id            Int             @id @default(autoincrement())
+  name          String
+  description   String?
+  isMandatory   Boolean? @default(true)
+  rate          Float?  @default(0)
+  calculationBase FeeCalculationBase @default(PER_HOUSEHOLD)
+  anchorDay     Int?
+  anchorMonth   Int?
+  status        FeeStatus  @default(ACTIVE)
+  createdAt     DateTime        @default(now())
+  assignments   FeeAssignment[]
+}
+
+model Repeatfee {
+  id            Int             @id @default(autoincrement())
+  name          String
+  description   String?
+  isMandatory   Boolean? @default(true)
+  frequency     Frequency
+  rate          Float?  @default(0)
+  calculationBase FeeCalculationBase @default(PER_HOUSEHOLD)
+  anchorDay     Int?
+  anchorMonth   Int?
+  status        FeeStatus  @default(ACTIVE)
+  createdAt     DateTime        @default(now())
+}
+
+enum FeeStatus {
+  ACTIVE     // đang thu
+  PAUSED     // tạm dừng
+  STOPPED    // ngừng vĩnh viễn
+}
+
+enum Frequency {
+  ONE_TIME
+  MONTHLY
+  YEARLY
+}
+
+enum FeeCalculationBase {
+  PER_PERSON
+  PER_HOUSEHOLD
+  PER_MOTORBIKE
+  PER_CAR
+}
+
+model FeeAssignment {
+  id          Int        @id @default(autoincrement())
+  feeId       Int
+  householdId Int
+  amountDue   Float
+  startDate   DateTime   @default(now())
+  dueDate     DateTime
+  isPaid      Boolean    @default(false)
+  fee         Fee        @relation(fields: [feeId], references: [id])
+  household   HouseHolds @relation(fields: [householdId], references: [id])
+  Payment     Payment?
+}
+
+model Payment {
+  id              Int           @id @default(autoincrement())
+  feeAssignmentId Int           @unique
+  amountPaid      Float?      // for optional fee
+  imageUrl        String? 
+  imagePath       String?
+  status          InformationStatus @default(PENDING)
+  paidDate         DateTime      @default(now())
+  note            String?
+  FeeAssignment   FeeAssignment @relation(fields: [feeAssignmentId], references: [id])
+}
+
+enum ResidenceStatus {
+  NORMAL
+  TEMP_ABSENT
+  TEMP_RESIDENT
+  MOVE_OUT
+}
+
+enum InformationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DELETING
+  ENDED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum RelationshipToHead {
+  HEAD
+  WIFE
+  HUSBAND
+  SON
+  DAUGHTER
+  FATHER
+  MOTHER
+  OTHER
+}
+
+model TemporaryResident {
+  id                Int               @id @default(autoincrement())
+  residentId        Int
+  householdId       Int
+  startDate         DateTime
+  endDate           DateTime
+  reason            String
+  informationStatus InformationStatus @default(PENDING)
+  submittedUserId   Int
+  submittedAt       DateTime          @default(now())
+  reviewedAdminId   Int?
+  reviewedAt        DateTime?
+  rejectReason      String?
+
+  household     HouseHolds @relation("tempaResHousehold", fields: [householdId], references: [id])
+  resident      Resident   @relation("tempResidence", fields: [residentId], references: [id])
+  submittedUser Users      @relation("tempResSubmit", fields: [submittedUserId], references: [id])
+  reviewedAdmin Users?     @relation("tempResReview", fields: [reviewedAdminId], references: [id])
+}
+
+model TemporaryAbsence {
+  id                Int               @id @default(autoincrement())
+  residentId        Int
+  startDate         DateTime
+  endDate           DateTime
+  reason            String
+  destination       String
+  informationStatus InformationStatus @default(PENDING)
+  submittedUserId   Int
+  submittedAt       DateTime          @default(now())
+  reviewedAdminId   Int?
+  reviewedAt        DateTime?
+  rejectReason String?
+
+  resident      Resident @relation("tempAbsence", fields: [residentId], references: [id])
+  submittedUser Users    @relation("tempAbsenceSubmit", fields: [submittedUserId], references: [id])
+  reviewedAdmin Users?   @relation("tempAbsenceReview", fields: [reviewedAdminId], references: [id])
+}
+
+model ResidentChanges {
+  id            Int       @id @default(autoincrement())
+  residentId    Int
+  action        Actions
+  submitUserId  Int
+  submitAt      DateTime  @default(now())
+  updateReason  String?
+  reviewAdminId Int?
+  reviewAt      DateTime?
+  rejectReason String?
+  informationStatus InformationStatus @default(PENDING)
+
+  resident      Resident @relation("residentChange", fields: [residentId], references: [id])
+  submittedUser Users    @relation("RcSubmit", fields: [submitUserId], references: [id])
+  reviewedAdmin Users?   @relation("RcReview", fields: [reviewAdminId], references: [id])
+}
+
+model HouseholdChanges {
+  id            Int       @id @default(autoincrement())
+  householdId   Int
+  action        Actions
+  submitUserId  Int
+  submitAt      DateTime  @default(now())
+  updateReason  String?
+  reviewAdminId Int?
+  reviewAt      DateTime?
+  rejectReason String?
+  informationStatus InformationStatus @default(PENDING)
+
+  household      HouseHolds @relation("householdChange", fields: [householdId], references: [id])
+  submittedUser Users    @relation("HcSubmit", fields: [submitUserId], references: [id])
+  reviewedAdmin Users?   @relation("HcReview", fields: [reviewAdminId], references: [id])
+}
+
+enum Actions {
+  CREATE
+  DELETE
+  UPDATE
+}

@@ -1,0 +1,192 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Users {
+  id               Int       @id @default(autoincrement())
+  username         String    @unique
+  email            String    @unique
+  password         String
+  role             Role
+  resetToken       String? // token reset
+  resetTokenExpiry DateTime? // thời hạn token
+  createtime       DateTime  @default(now())
+  householdId Int?        @unique
+
+  ReceivedNotifications Notifications[] @relation("receiver")
+  SendedNotifications Notifications[] @relation("sender")
+  HouseHolds  HouseHolds? @relation("account") // tài khoản của hộ gia đình
+}
+
+enum Role {
+  USER
+  ADMIN
+  ACCOUNTANT
+}
+
+model HouseHolds {
+  id              Int             @id @default(autoincrement())
+  houseHoldCode   Int             @unique // số hộ khẩu
+  apartmentNumber String          @unique // số căn hộ
+  buildingNumber  String // Số nhà
+  street          String // Tên đường / ngõ
+  ward            String // Xã / Phường
+  province        String // Tỉnh / Thành phố
+  status          HouseHoldStatus @default(ACTIVE)
+  createtime      DateTime        @default(now())
+
+  headID Int      @unique // id chủ hộ
+  head   Resident @relation("headOfHouse", fields: [headID], references: [id])
+
+  resident Resident[] @relation("houseMembers") // nhân khẩu trong 1 hộ
+
+  userID  Int   @unique
+  account Users @relation("account", fields: [userID], references: [id]) // một hộ có 1 tài khoản
+
+  ResidenceResgistration ResidenceRegistration[] @relation("ResidenceRegis1")
+  FeeAssignment FeeAssignment[]
+}
+
+enum HouseHoldStatus {
+  ACTIVE
+  MOVED
+  DELETE
+}
+
+model Resident {
+  id                 Int                @id @default(autoincrement())
+  nationalId         String             @unique // cccd
+  phoneNumber        String             @unique
+  email              String             @unique
+  fullname           String
+  dateOfBirth        DateTime
+  gender             Gender
+  relationshipToHead RelationshipToHead
+  placeOfOrigin      String
+  occupation         String
+  workingAdress      String
+  residencStatus     ResidenceStatus    @default(NORMAL)
+  houseHoldId        Int? // hộ khẩu
+
+  houseHold   HouseHolds? @relation("houseMembers", fields: [houseHoldId], references: [id])
+  headedHouse HouseHolds? @relation("headOfHouse")
+
+  ResidenceResgistration ResidenceRegistration[] @relation("ResidenceRegis2")
+}
+
+enum ResidenceStatus {
+  NORMAL
+  TEMP_ABSENT
+  MOVE_OUT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum RelationshipToHead {
+  HEAD
+  WIFE
+  HUSBAND
+  SON
+  DAUGHTER
+  FATHER
+  MOTHER
+  PERMANENT_RESIDENCE
+  TEMPORAY_RESIDENCE
+  OTHER
+}
+
+model ResidenceRegistration {
+  id         Int      @id @default(autoincrement())
+  householdId Int
+  household    HouseHolds @relation("ResidenceRegis1", fields: [householdId], references: [id])
+  residentId Int
+  resident   Resident @relation("ResidenceRegis2", fields: [residentId], references: [id])
+
+  regisType RegistrationType
+  startDate DateTime
+  endDate   DateTime?
+  reason    String?
+  address   String // nếu là tạm trú: là địa chỉ trc đó, nếu tạm vắng là địa chỉ sẽ đến
+  status    RegistrationStatus
+}
+
+enum RegistrationStatus{
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum RegistrationType{
+  TEMPORARY
+  PERMANENT
+  TemporaryAbsence
+}
+
+enum FeeType {
+  MANDATORY // Thu bắt buộc
+  VOLUNTARY // Đóng góp tự nguyện
+}
+
+enum FeeFrequency {
+  ONE_TIME // Không định kỳ
+  MONTHLY // Hàng tháng
+  YEARLY // Hàng năm
+}
+
+model Fee {
+  id            Int          @id @default(autoincrement())
+  name          String
+  description   String?
+  type          FeeType
+  frequency     FeeFrequency
+  ratePerPerson Float // Mức phí mỗi nhân khẩu
+  minium        Float?       @default(0) // nếu là đóng góp
+  startDate     DateTime
+  endDate       DateTime
+  createdAt     DateTime     @default(now())
+
+  assignments FeeAssignment[]
+}
+// admin tạo phí -> gán cho các hộ gia đình
+// nếu là hàng tháng thì sao?
+// nếu có chu kì và giá tiền cố định -> tự tạo khoản thu vào ngày cố định trong tháng/ ngày, tháng cố định trong năm
+
+model FeeAssignment {
+  id          Int      @id @default(autoincrement())
+  feeId       Int
+  householdId Int
+  amountDue   Float // Số tiền phải nộp = nhân khẩu × đơn giá
+  isPaid      Boolean  @default(false)
+  paidDate        DateTime?
+  note            String?
+
+  fee       Fee        @relation(fields: [feeId], references: [id])
+  household HouseHolds @relation(fields: [householdId], references: [id])
+}
+
+model Notifications{
+  id Int @id @default(autoincrement())
+  time DateTime @default(now())
+  senderId Int
+  receiverId Int
+  message String
+  metadata  Json?
+  isRead    Boolean          @default(false)
+
+  sender Users @relation("sender", fields: [senderId], references: [id])
+  receiver Users @relation("receiver", fields: [receiverId], references: [id])
+}
